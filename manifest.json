@@ -1,0 +1,7 @@
+{
+  "name": "Mittmann",
+  "description": "Save and download requested data in a website.",
+  "version": "0.1",
+  "manifest_version": 3,
+  "devtools_page": "./dist/devtool/index.html"
+}
