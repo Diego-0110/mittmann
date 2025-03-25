@@ -1,47 +1,58 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from '/vite.svg'
-  import Counter from './lib/Counter.svelte'
+  import Button from "$/components/ui/Button.svelte";
+  import { CirclePlay, StopCircle, Trash2 } from "@lucide/svelte";
+  interface InterceptedResponse {
+    id: string
+    contentType?: string
+  }
+  let interceptedResponse: InterceptedResponse[] = $state([])
+  interface InterceptOptions {
+    activated: boolean
+  }
+  let interceptOptions: InterceptOptions = $state({
+    activated: false
+  })
+  chrome.devtools.network.onRequestFinished.addListener((inRequest) => {
+    if (!interceptOptions.activated) {
+      return
+    }
+    const devRequest = inRequest as chrome.devtools.network.Request & { response: Response }
+    const contentType = devRequest.response.content.mimeType as string
+    devRequest.getContent((content, encoding) => console.log(
+      URL.createObjectURL(new Blob([content], { type: contentType }))
+    ))
+    interceptedResponse = [...interceptedResponse, {
+      id: self.crypto.randomUUID(),
+      contentType: devRequest.response.content.mimeType || undefined
+    }]
+  })
+  $effect(() => {
+    console.log(interceptOptions)
+    console.log(interceptedResponse)
+  })
 </script>
 
-<main>
-  <div class="flex justify-center gap-2">
-    <a href="https://vite.dev" target="_blank" rel="noreferrer">
-      <img src={viteLogo} class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
+<main class="p-2">
+  <h1 class="text-2xl font-bold mb-2">Mittmann</h1>
+
+  <div>
+    <Button onclick={() => interceptOptions.activated = !interceptOptions.activated }
+      variant={interceptOptions.activated? 'destructive' : 'primary'}>
+      {#if interceptOptions.activated}
+        <StopCircle class="size-4" />Stop
+      {:else}
+        <CirclePlay class="size-4" />Intercept
+      {/if}
+    </Button>
+    <Button onclick={() => interceptedResponse = []} variant="secondary">
+      <Trash2 class="size-4" />Discard
+    </Button>
   </div>
-  <h1 class="text-blue-300">Mittmann</h1>
 
-  <div class="card">
-    <Counter />
+  <div class="space-y-2">
+    {#each interceptedResponse as capReq}
+      <p>{capReq.id} - {capReq.contentType}</p>
+    {/each}
   </div>
 
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
 </main>
-
-<style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
-</style>

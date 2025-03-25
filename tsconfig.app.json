@@ -17,7 +17,11 @@
     "moduleDetection": "force",
     "types": [
       "chrome-types"
-    ]
+    ],
+    "paths": {
+      "$": ["./src"],
+      "$/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "devtool/**/*.ts"]
 }
