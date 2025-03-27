@@ -7,8 +7,10 @@
   --color-success: #118510;
   --color-surface: #1d292f;
   --color-surface-container: #2f3e46;
-  --color-outline: #4d7f8d;
+  --color-outline: #2f3e46;
   --color-text: #eff6ff;
+
+  --breakpoint-xs: 30rem;
 }
 
 html {
