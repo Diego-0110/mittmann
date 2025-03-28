@@ -1,9 +1,9 @@
 
 export interface InterceptedResponse {
   id: string
-  contentType?: string
-  name?: string
-  size?: number
+  contentType: string
+  name: string
+  size: number
 }
 
 export interface InterceptedResponseEx  extends InterceptedResponse {

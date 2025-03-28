@@ -9,7 +9,7 @@ const { children, variant = 'primary', class: className, ...props }: Props = $pr
 
 <Button.Root
   class={cn(
-    "rounded-sm inline-flex gap-1 px-4 py-2 font-bold active:scale-[0.98] active:transition-all",
+    "rounded-sm inline-flex items-center gap-1 px-4 py-2 font-semibold active:scale-[0.98] active:transition-all",
     {
       "bg-primary hover:bg-primary/90": variant === 'primary',
       "bg-secondary hover:bg-secondary/90": variant === 'secondary',
