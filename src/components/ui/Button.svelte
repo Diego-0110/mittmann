@@ -11,10 +11,10 @@ const { children, variant = 'primary', class: className, ...props }: Props = $pr
   class={cn(
     "rounded-sm inline-flex items-center gap-1 px-4 py-2 font-semibold active:scale-[0.98] active:transition-all",
     {
-      "bg-primary hover:bg-primary/90": variant === 'primary',
-      "bg-secondary hover:bg-secondary/90": variant === 'secondary',
-      "bg-error hover:bg-error/90": variant === 'destructive',
-      "bg-success hover:bg-success/90": variant === 'success',
+      "bg-primary hover:bg-primary/90 disabled:bg-primary/30": variant === 'primary',
+      "bg-secondary hover:bg-secondary/90 disabled:bg-secondary/30": variant === 'secondary',
+      "bg-error hover:bg-error/90 disabled:bg-error/30": variant === 'destructive',
+      "bg-success hover:bg-success/90 disabled:bg-success/30": variant === 'success',
     }
   )}
   {...props}

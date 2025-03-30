@@ -4,35 +4,51 @@ import { File, FileAudio, FileImage, FileText, FileVideo } from "@lucide/svelte"
 import Button from "./ui/Button.svelte";
 import { getIDBDatabase } from "$/services/db";
 import { getIntRes } from "$/services/interceptedResponse";
+import { roundWithPrecision } from "$/utils/misc";
+import { cn } from "$/utils/tailwind";
 
 interface Props {
   interceptedResponse: InterceptedResponse
+  selected: boolean
+  onSelection: (selected: boolean, id: string) => void
 }
 
-const { interceptedResponse: ir }: Props = $props()
+const { interceptedResponse: ir, selected, onSelection }: Props = $props()
 let indexedDb: IDBDatabase | null = $state(null)
 
 async function handleDownload () {
   if (indexedDb) {
     const irEx = await getIntRes(indexedDb, ir.id)
+    // TODO: use mime-types
     const url = `data:${irEx.contentType};base64,${irEx.content}`
     chrome.downloads.download({ url })
   }
+}
+function handleSelection () {
+  onSelection(!selected, ir.id)
 }
 $effect(() => {
   getIDBDatabase().then((db) => indexedDb = db)
 })
 const kb = Math.pow(2, 10)
 const mb = Math.pow(2, 20)
-function roundWithPrecision(num: number, precision: number) {
-  const aux = Math.pow(10, precision)
-  return (Math.ceil(num * aux) / aux)
-}
 </script>
 
-<section class="border-2 border-outline rounded-sm">
-  <div class="p-2 flex justify-center items-center border-b-2 border-outline">
-    <span class="p-1 rounded-sm bg-primary ">
+<section class={cn(
+  "border-2 border-outline rounded-sm group hover:border-primary/40",
+  {
+    "!border-primary": selected
+  }
+)}
+  onclick={handleSelection} onkeydown={handleSelection}
+  role="button" tabindex="0">
+  <div class={cn(
+    "p-2 flex justify-center items-center border-b-2 border-outline group-hover:border-primary/40",
+    {
+      "!border-primary": selected
+    }
+  )}>
+    <span class="p-1 rounded-sm bg-primary">
       {#if ir.contentType?.includes('image')}
         <FileImage class="size-6" />
       {:else if ir.contentType?.includes('video')}
