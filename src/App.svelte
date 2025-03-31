@@ -8,6 +8,7 @@
   import { addIntRes, getIntRes, deleteAll, deleteIntRes } from "./services/interceptedResponse";
   import { CONTENT_TYPES } from "./constants/contenttypes";
   import { SvelteSet } from "svelte/reactivity";
+  import mime from "mime-types";
   // import Compressor from "compressorjs";
   // import { base64ToFile, blobToDataUrl } from "./utils/misc";
 
@@ -33,10 +34,16 @@
       return
     }
     const name = new URL(devRequest.request.url).pathname.split('/').slice(-1)[0]
-    devRequest.getContent(async (content, encoding) => {
+    devRequest.getContent(async (content, defEncoding) => {
+      if (!content) {
+        return
+      }
+      const encoding = defEncoding || mime.charset(contentType) || undefined
       const newInterceptedResponse: InterceptedResponse = {
         id: self.crypto.randomUUID(),
-        contentType: encoding? `${contentType}; charset=${encoding}`: contentType,
+        contentType: encoding && encoding !== 'base64'?
+          `${contentType};charset=${encoding.toLowerCase()}`: contentType,
+        encoding,
         name,
         size: devRequest.response.content.size
       }
@@ -88,15 +95,15 @@
     }
   }
   async function handleDelete () {
-    interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
-    selectedResponses = []
-    setSelRes.clear()
     if (indexedDb) {
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
         await deleteIntRes(indexedDb, irid)
       }
     }
+    interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
+    selectedResponses = []
+    setSelRes.clear()
   }
   function handleSelectAll (selected: boolean) {
     if (selected) {
@@ -114,56 +121,55 @@
   })
 </script>
 
-<main class="p-2 max-sm:text-sm">
-  <h1 class="text-2xl font-bold mb-2">Mittmann</h1>
-
-  <div class="mb-1 flex flex-wrap gap-1 items-center">
-    <Button onclick={() => interceptOptions.activated = !interceptOptions.activated }
-      variant={interceptOptions.activated? 'destructive' : 'primary'}>
-      {#if interceptOptions.activated}
-        <StopCircle class="size-4" />Stop
-      {:else}
-        <CirclePlay class="size-4" />Intercept
-      {/if}
-    </Button>
-    <Button onclick={handleDeleteAll} variant="secondary">
-      <Trash2 class="size-4" />Discard
-    </Button>
-  </div>
-  <div class="mb-2 flex flex-wrap gap-1 items-start">
-    <Combobox items={CONTENT_TYPES} bind:value={contentTypeFilters}
-      inputProps={{ placeholder: 'Content-Type' }} type="multiple"
-      onresetitems={() => (contentTypeFilters = [])}
-    />
-  </div>
-  <div class="flex gap-4 items-center justify-between flex-wrap mb-4">
-    <p class="text-text/50">
-      {interceptedResponses.length} Response/s
-    </p>
-    <div class="flex gap-1 items-center">
-      <p class="px-1 text-sm text-text/50">
-        {selectedResponses.length} selected
-      </p>
-      <input type="checkbox"
-        checked={selectedResponses.length > 0}
-        disabled={interceptedResponses.length < 1}
-        onchange={(evt) => handleSelectAll(evt.currentTarget.checked)}
-      />
-      <Button variant="primary" disabled={selectedResponses.length < 1}
-        onclick={handleDownload}>
-        <Download class="size-4" />
+<main class="max-sm:text-sm pb-4">
+  <header class="sticky top-0 p-2 bg-surface mb-2">
+    <div class="mb-1 flex flex-wrap gap-1 items-center">
+      <Button onclick={() => interceptOptions.activated = !interceptOptions.activated }
+        variant={interceptOptions.activated? 'destructive' : 'primary'}>
+        {#if interceptOptions.activated}
+          <StopCircle class="size-4" />Stop
+        {:else}
+          <CirclePlay class="size-4" />Intercept
+        {/if}
       </Button>
-      <Button variant="destructive" disabled={selectedResponses.length < 1}
-        onclick={handleDelete}>
-        <Trash2 class="size-4" />
+      <Button onclick={handleDeleteAll} variant="secondary">
+        <Trash2 class="size-4" />Discard
       </Button>
     </div>
-  </div>
-  <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1">
+    <div class="flex flex-wrap gap-1 items-start mb-2">
+      <Combobox items={CONTENT_TYPES} bind:value={contentTypeFilters}
+        inputProps={{ placeholder: 'Content-Type' }} type="multiple"
+        onresetitems={() => (contentTypeFilters = [])}
+      />
+    </div>
+    <div class="flex gap-4 items-center justify-between flex-wrap">
+      <p class="text-text/50">
+        {interceptedResponses.length} Response/s
+      </p>
+      <div class="flex gap-1 items-center">
+        <p class="px-1 text-sm text-text/50">
+          {selectedResponses.length} selected
+        </p>
+        <input type="checkbox"
+          checked={selectedResponses.length > 0}
+          disabled={interceptedResponses.length < 1}
+          onchange={(evt) => handleSelectAll(evt.currentTarget.checked)}
+        />
+        <Button variant="primary" disabled={selectedResponses.length < 1}
+          onclick={handleDownload}>
+          <Download class="size-4" />
+        </Button>
+        <Button variant="destructive" disabled={selectedResponses.length < 1}
+          onclick={handleDelete}>
+          <Trash2 class="size-4" />
+        </Button>
+      </div>
+    </div>
+  </header>
+  <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 px-2">
     {#each interceptedResponses as intRes}
       <InterceptionCard interceptedResponse={intRes} selected={setSelRes.has(intRes.id)}
         onSelection={handleSelection} />
     {/each}
   </div>
-
 </main>

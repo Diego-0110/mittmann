@@ -6,6 +6,7 @@ import { getIDBDatabase } from "$/services/db";
 import { getIntRes } from "$/services/interceptedResponse";
 import { roundWithPrecision } from "$/utils/misc";
 import { cn } from "$/utils/tailwind";
+import mime from 'mime-types';
 
 interface Props {
   interceptedResponse: InterceptedResponse
@@ -19,9 +20,15 @@ let indexedDb: IDBDatabase | null = $state(null)
 async function handleDownload () {
   if (indexedDb) {
     const irEx = await getIntRes(indexedDb, ir.id)
-    // TODO: use mime-types
-    const url = `data:${irEx.contentType};base64,${irEx.content}`
-    chrome.downloads.download({ url })
+    let useBase64 = ir.encoding === 'base64'
+    const content = useBase64? `;base64,${irEx.content}`
+      : ',' + encodeURIComponent(irEx.content)
+    const url = `data:${ir.contentType}${content}`
+    const hasExt = mime.extensions[ir.contentType.split(';')[0]].some((e) => ir.name.endsWith(e))
+    const filename = hasExt || !ir.name? ir.name : ir.name + '/.' + mime.extension(ir.contentType)
+    console.log('download')
+    chrome.downloads.download({ url,
+      filename: filename?.replace(/[/\\?%*:|"<>]/g, '') || undefined })
   }
 }
 function handleSelection () {

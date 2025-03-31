@@ -2,6 +2,7 @@
 export interface InterceptedResponse {
   id: string
   contentType: string
+  encoding?: string
   name: string
   size: number
 }
