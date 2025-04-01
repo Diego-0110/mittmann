@@ -1,12 +1,9 @@
 <script lang="ts">
 import type { InterceptedResponse } from "$/types"
 import { File, FileAudio, FileImage, FileText, FileVideo } from "@lucide/svelte";
-import Button from "./ui/Button.svelte";
 import { getIDBDatabase } from "$/services/db";
-import { getIntRes } from "$/services/interceptedResponse";
 import { roundWithPrecision } from "$/utils/misc";
 import { cn } from "$/utils/tailwind";
-import mime from 'mime-types';
 
 interface Props {
   interceptedResponse: InterceptedResponse
@@ -17,20 +14,6 @@ interface Props {
 const { interceptedResponse: ir, selected, onSelection }: Props = $props()
 let indexedDb: IDBDatabase | null = $state(null)
 
-async function handleDownload () {
-  if (indexedDb) {
-    const irEx = await getIntRes(indexedDb, ir.id)
-    let useBase64 = ir.encoding === 'base64'
-    const content = useBase64? `;base64,${irEx.content}`
-      : ',' + encodeURIComponent(irEx.content)
-    const url = `data:${ir.contentType}${content}`
-    const hasExt = mime.extensions[ir.contentType.split(';')[0]].some((e) => ir.name.endsWith(e))
-    const filename = hasExt || !ir.name? ir.name : ir.name + '/.' + mime.extension(ir.contentType)
-    console.log('download')
-    chrome.downloads.download({ url,
-      filename: filename?.replace(/[/\\?%*:|"<>]/g, '') || undefined })
-  }
-}
 function handleSelection () {
   onSelection(!selected, ir.id)
 }
@@ -69,14 +52,14 @@ const mb = Math.pow(2, 20)
       {/if}
     </span>
   </div>
-  <div class="p-1 flex flex-col items-center gap-1">
+  <div class="p-2 flex flex-col items-center gap-1">
     <!-- TODO: hover to show complete text -->
     <p class="font-semibold max-w-full whitespace-nowrap overflow-hidden text-ellipsis">
       {ir.name}
     </p>
     <span class="px-2 max-w-full rounded-sm text-sm bg-surface-container whitespace-nowrap
       overflow-hidden text-ellipsis">
-      {ir.contentType}
+      {ir.contentType.split(';')[0]}
     </span>
     <span class="px-2 max-w-full rounded-sm text-sm bg-surface-container whitespace-nowrap
       overflow-hidden text-ellipsis">
@@ -88,6 +71,5 @@ const mb = Math.pow(2, 20)
         {ir.size} Bytes
       {/if}
     </span>
-    <Button onclick={handleDownload}>Download</Button>
   </div>
 </section>

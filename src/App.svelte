@@ -6,7 +6,6 @@
   import InterceptionCard from "./components/InterceptionCard.svelte";
   import { getIDBDatabase } from "./services/db";
   import { addIntRes, getIntRes, deleteAll, deleteIntRes } from "./services/interceptedResponse";
-  import { CONTENT_TYPES } from "./constants/contenttypes";
   import { SvelteSet } from "svelte/reactivity";
   import mime from "mime-types";
   // import Compressor from "compressorjs";
@@ -20,6 +19,8 @@
   let contentTypeFilters: string[] = $state([])
   let selectedResponses: string[] = $state([])
   let setSelRes: SvelteSet<string> = $state(new SvelteSet())
+  const CONTENT_TYPES = [...new Set(Object.values(mime.types).sort()).values()]
+  .map((c) => ({ value: c, label: c }))
 
   chrome.devtools.network.onRequestFinished.addListener((inRequest) => {
     if (!interceptOptions.activated) {
@@ -89,8 +90,18 @@
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
         const irEx = await getIntRes(indexedDb, irid)
-        const url = `data:${irEx.contentType};base64,${irEx.content}`
-        chrome.downloads.download({ url })
+        let useBase64 = irEx.encoding === 'base64'
+        const content = useBase64? `;base64,${irEx.content}`
+          : ',' + encodeURIComponent(irEx.content)
+        const url = `data:${irEx.contentType}${content}`
+        const hasExt = mime.extensions[irEx.contentType.split(';')[0]]
+        .some((e) => irEx.name.endsWith(e))
+        const filename = hasExt || !irEx.name? irEx.name
+          : irEx.name + '/.' + mime.extension(irEx.contentType)
+        chrome.downloads.download({
+          url,
+          filename: filename?.replace(/[/\\?%*:|"<>]/g, '') || undefined
+        })
       }
     }
   }
@@ -150,6 +161,7 @@
         <p class="px-1 text-sm text-text/50">
           {selectedResponses.length} selected
         </p>
+        <!-- TODO: change to component bits ui -->
         <input type="checkbox"
           checked={selectedResponses.length > 0}
           disabled={interceptedResponses.length < 1}
