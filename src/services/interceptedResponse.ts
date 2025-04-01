@@ -14,6 +14,12 @@ export function getIntRes (db: IDBDatabase, id: string) {
   return wrapIDBRequest<InterceptedResponseEx>(request)
 }
 
+export function getIntResAll (db: IDBDatabase) {
+  const request = db.transaction('interceptedResponses', 'readonly')
+  .objectStore('interceptedResponses').getAll()
+  return wrapIDBRequest<InterceptedResponseEx[]>(request)
+}
+
 export async function deleteIntRes (db: IDBDatabase, id: string) {
   const request = db.transaction('interceptedResponses', 'readwrite')
   .objectStore('interceptedResponses').delete(id)

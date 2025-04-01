@@ -1,11 +1,12 @@
 <script lang="ts">
   import Button from "$/components/ui/Button.svelte";
   import Combobox from "$/components/ui/Combobox.svelte";
+  import Checkbox from "$/components/ui/Checkbox.svelte";
   import { CirclePlay, Download, StopCircle, Trash2 } from "@lucide/svelte";
   import type { InterceptedResponse, InterceptOptions } from "$/types"
   import InterceptionCard from "./components/InterceptionCard.svelte";
   import { getIDBDatabase } from "./services/db";
-  import { addIntRes, getIntRes, deleteAll, deleteIntRes } from "./services/interceptedResponse";
+  import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
   import { SvelteSet } from "svelte/reactivity";
   import mime from "mime-types";
   // import Compressor from "compressorjs";
@@ -126,9 +127,11 @@
     }
   }
   $effect(() => {
-    getIDBDatabase().then((db) => indexedDb = db)
-  })
-  $effect(() => {
+    getIDBDatabase().then(async (db) => {
+      indexedDb = db
+      const prevIntRes = await getIntResAll(db)
+      interceptedResponses = [...prevIntRes, ...interceptedResponses]
+    })
   })
 </script>
 
@@ -154,19 +157,17 @@
       />
     </div>
     <div class="flex gap-4 items-center justify-between flex-wrap">
+      <!-- TODO: show total used space -->
       <p class="text-text/50">
         {interceptedResponses.length} Response/s
       </p>
-      <div class="flex gap-1 items-center">
-        <p class="px-1 text-sm text-text/50">
-          {selectedResponses.length} selected
-        </p>
-        <!-- TODO: change to component bits ui -->
-        <input type="checkbox"
+      <div class="flex gap-1 items-center text-text/50">
+        <Checkbox id="select" class="mr-2"
           checked={selectedResponses.length > 0}
           disabled={interceptedResponses.length < 1}
-          onchange={(evt) => handleSelectAll(evt.currentTarget.checked)}
-        />
+          onCheckedChange={(checked) => handleSelectAll(checked)}>
+          {selectedResponses.length} selected
+        </Checkbox>
         <Button variant="primary" disabled={selectedResponses.length < 1}
           onclick={handleDownload}>
           <Download class="size-4" />

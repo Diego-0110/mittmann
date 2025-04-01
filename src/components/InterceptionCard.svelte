@@ -61,6 +61,7 @@ const mb = Math.pow(2, 20)
       overflow-hidden text-ellipsis">
       {ir.contentType.split(';')[0]}
     </span>
+
     <span class="px-2 max-w-full rounded-sm text-sm bg-surface-container whitespace-nowrap
       overflow-hidden text-ellipsis">
       {#if ir.size >= mb}
