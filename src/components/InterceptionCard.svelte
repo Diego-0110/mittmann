@@ -2,8 +2,9 @@
 import type { InterceptedResponse } from "$/types"
 import { File, FileAudio, FileImage, FileText, FileVideo } from "@lucide/svelte";
 import { getIDBDatabase } from "$/services/db";
-import { roundWithPrecision } from "$/utils/misc";
+import { responseToDataURL, roundWithPrecision } from "$/utils/misc";
 import { cn } from "$/utils/tailwind";
+    import { getIntRes } from "$/services/interceptedResponse";
 
 interface Props {
   interceptedResponse: InterceptedResponse
@@ -13,12 +14,25 @@ interface Props {
 
 const { interceptedResponse: ir, selected, onSelection }: Props = $props()
 let indexedDb: IDBDatabase | null = $state(null)
+let showPreview = $state(false)
+let previewContent: null | string = $state(null)
 
 function handleSelection () {
   onSelection(!selected, ir.id)
 }
 $effect(() => {
   getIDBDatabase().then((db) => indexedDb = db)
+})
+$effect(() => {
+  if (showPreview && indexedDb) {
+    getIntRes(indexedDb, ir.id).then((irEx) => {
+      if (ir.contentType.includes('image')) {
+        previewContent = responseToDataURL(irEx)
+      } else {
+        previewContent = irEx.content
+      }
+    })
+  }
 })
 const kb = Math.pow(2, 10)
 const mb = Math.pow(2, 20)
@@ -38,19 +52,40 @@ const mb = Math.pow(2, 20)
       "!border-primary": selected
     }
   )}>
-    <span class="p-1 rounded-sm bg-primary">
-      {#if ir.contentType?.includes('image')}
+    <button class="p-1 rounded-sm bg-primary hover:cursor-pointer"
+      onclick={(evt) => { evt.stopPropagation(); showPreview = true; }}>
+      {#if ir.contentType.includes('image')}
         <FileImage class="size-6" />
-      {:else if ir.contentType?.includes('video')}
+      {:else if ir.contentType.includes('video')}
         <FileVideo class="size-6" />
-      {:else if ir.contentType?.includes('audio')}
+      {:else if ir.contentType.includes('audio')}
         <FileAudio class="size-6" />
-      {:else if ir.contentType?.includes('text')}
+      {:else if ir.contentType.includes('text')}
         <FileText class="size-6" />
       {:else}
         <File class="size-6" />
       {/if}
-    </span>
+    </button>
+    <div tabindex="0" role="button" hidden={!showPreview}
+      onclick={(evt) => { evt.stopPropagation(); showPreview = false; }}
+      onkeydown={(evt) => { evt.stopPropagation(); showPreview = false; }}
+      class="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center p-2 bg-surface/60">
+      {#if previewContent}
+        <div class="p-2 w-full h-[min(100%,24em)] flex items-center justify-center bg-surface-container rounded-sm">
+          {#if ir.contentType.includes('image')}
+            <img src={previewContent} alt="Preview">
+          {:else}
+            <p class="overflow-y-auto overflow-x-hidden break-words">
+              <code>
+                {previewContent}
+              </code>
+            </p>
+          {/if}
+        </div>
+      {:else}
+        Loading...
+      {/if}
+    </div>
   </div>
   <div class="p-2 flex flex-col items-center gap-1">
     <!-- TODO: hover to show complete text -->

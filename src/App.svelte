@@ -9,6 +9,7 @@
   import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
   import { SvelteSet } from "svelte/reactivity";
   import mime from "mime-types";
+    import { responseToDataURL } from "./utils/misc";
   // import Compressor from "compressorjs";
   // import { base64ToFile, blobToDataUrl } from "./utils/misc";
 
@@ -91,16 +92,13 @@
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
         const irEx = await getIntRes(indexedDb, irid)
-        let useBase64 = irEx.encoding === 'base64'
-        const content = useBase64? `;base64,${irEx.content}`
-          : ',' + encodeURIComponent(irEx.content)
-        const url = `data:${irEx.contentType}${content}`
+        // TODO: case not extension
         const hasExt = mime.extensions[irEx.contentType.split(';')[0]]
         .some((e) => irEx.name.endsWith(e))
         const filename = hasExt || !irEx.name? irEx.name
           : irEx.name + '/.' + mime.extension(irEx.contentType)
         chrome.downloads.download({
-          url,
+          url: responseToDataURL(irEx),
           filename: filename?.replace(/[/\\?%*:|"<>]/g, '') || undefined
         })
       }
