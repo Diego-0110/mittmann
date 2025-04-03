@@ -10,7 +10,7 @@ const { children, class: className, ...props }: Props = $props()
 
 </script>
 <div class={cn(
-  "flex items-center space-x-3 text-sm",
+  "flex items-center gap-2 text-sm",
   className
 )}>
   <Checkbox.Root

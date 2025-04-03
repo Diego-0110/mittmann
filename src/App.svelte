@@ -9,9 +9,7 @@
   import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
   import { SvelteSet } from "svelte/reactivity";
   import mime from "mime-types";
-    import { responseToDataURL } from "./utils/misc";
-  // import Compressor from "compressorjs";
-  // import { base64ToFile, blobToDataUrl } from "./utils/misc";
+  import { responseToDataURL, sizeToStr } from "./utils/misc";
 
   let interceptedResponses: InterceptedResponse[] = $state([])
   let interceptOptions: InterceptOptions = $state({
@@ -23,16 +21,22 @@
   let setSelRes: SvelteSet<string> = $state(new SvelteSet())
   const CONTENT_TYPES = [...new Set(Object.values(mime.types).sort()).values()]
   .map((c) => ({ value: c, label: c }))
+  let totalResSize = $state(0)
+  let totalSelSize = $state(0)
 
   chrome.devtools.network.onRequestFinished.addListener((inRequest) => {
     if (!interceptOptions.activated) {
       return
     }
     const devRequest = inRequest as chrome.devtools.network.Request & {
-      response: Response & { content: { mimeType: string, size: number }}
+      response: Response & { content: { mimeType: string, size: number },
+        headers: { name: string, value: string }[] }
       request: Request
     }
-    const contentType = devRequest.response.content.mimeType as string
+    let contentType = devRequest.response.content.mimeType as string
+    const headerContentType = devRequest.response.headers.find((h) => h.name === 'content-type')
+    contentType = contentType !== 'x-unknown' || !headerContentType?.value ? contentType
+      : headerContentType?.value.split(';')[0]
     if (contentTypeFilters.length > 0 && !contentTypeFilters.includes(contentType)) {
       return
     }
@@ -42,26 +46,18 @@
         return
       }
       const encoding = defEncoding || mime.charset(contentType) || undefined
+      const size = devRequest.response.content.size
       const newInterceptedResponse: InterceptedResponse = {
         id: self.crypto.randomUUID(),
         contentType: encoding && encoding !== 'base64'?
           `${contentType};charset=${encoding.toLowerCase()}`: contentType,
         encoding,
         name,
-        size: devRequest.response.content.size
+        size
       }
 
-      // if (contentType.includes('image')) {
-      //   new Compressor(base64ToFile(content, contentType), {
-      //     maxWidth: 10, maxHeight: 10,
-      //     success: async (result) => {
-      //       const resultUrl = await blobToDataUrl(result)
-      //       console.log('compress', resultUrl) 
-      //     },
-      //     error: (err) => console.log(err)
-      //   })
-      // }
       interceptedResponses = [...interceptedResponses, newInterceptedResponse]
+      totalResSize += size
       if (indexedDb) {
         addIntRes(indexedDb, {
           ...newInterceptedResponse,
@@ -74,17 +70,21 @@
     interceptedResponses = []
     selectedResponses = []
     setSelRes.clear()
+    totalResSize = 0
+    totalSelSize = 0
     if (indexedDb) {
       await deleteAll(indexedDb)
     }
   }
-  function handleSelection (selected: boolean, id: string) {
+  function handleSelection (selected: boolean, ir: InterceptedResponse) {
     if (selected) {
-      selectedResponses = [...selectedResponses, id]
-      setSelRes.add(id)
+      selectedResponses = [...selectedResponses, ir.id]
+      setSelRes.add(ir.id)
+      totalSelSize += ir.size
     } else {
-      selectedResponses = selectedResponses.filter((sid) => sid !== id)
-      setSelRes.delete(id)
+      selectedResponses = selectedResponses.filter((sid) => sid !== ir.id)
+      setSelRes.delete(ir.id)
+      totalSelSize -= ir.size
     }
   }
   async function handleDownload () {
@@ -92,14 +92,16 @@
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
         const irEx = await getIntRes(indexedDb, irid)
-        // TODO: case not extension
-        const hasExt = mime.extensions[irEx.contentType.split(';')[0]]
-        .some((e) => irEx.name.endsWith(e))
-        const filename = hasExt || !irEx.name? irEx.name
-          : irEx.name + '/.' + mime.extension(irEx.contentType)
+        const hasExt = mime.extensions[irEx.contentType.split(';')[0]]?.some(
+          (e) => irEx.name.endsWith(e))
+        const defExt = mime.extension(irEx.contentType)
+        let filename = irEx.name || 'download' // default value
+        if (!hasExt && defExt) {
+          filename += `.${defExt}`
+        }
         chrome.downloads.download({
           url: responseToDataURL(irEx),
-          filename: filename?.replace(/[/\\?%*:|"<>]/g, '') || undefined
+          filename: filename?.replace(/[/\\?%*:|"<>]/g, '')
         })
       }
     }
@@ -114,14 +116,18 @@
     interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
     selectedResponses = []
     setSelRes.clear()
+    totalResSize -= totalSelSize
+    totalSelSize = 0
   }
   function handleSelectAll (selected: boolean) {
     if (selected) {
       selectedResponses = [...interceptedResponses.map((r) => r.id)]
       interceptedResponses.forEach((r) => setSelRes.add(r.id))
+      totalSelSize = totalResSize
     } else {
       selectedResponses = []
       setSelRes.clear()
+      totalSelSize = 0
     }
   }
   $effect(() => {
@@ -129,12 +135,13 @@
       indexedDb = db
       const prevIntRes = await getIntResAll(db)
       interceptedResponses = [...prevIntRes, ...interceptedResponses]
+      totalResSize += interceptedResponses.reduce((acc, curr) => acc + curr.size, 0)
     })
   })
 </script>
 
 <main class="max-sm:text-sm pb-4">
-  <header class="sticky top-0 p-2 bg-surface mb-2">
+  <div class="sticky top-0 p-2 bg-surface max-w-6xl mx-auto mb-2">
     <div class="mb-1 flex flex-wrap gap-1 items-center">
       <Button onclick={() => interceptOptions.activated = !interceptOptions.activated }
         variant={interceptOptions.activated? 'destructive' : 'primary'}>
@@ -154,30 +161,31 @@
         onresetitems={() => (contentTypeFilters = [])}
       />
     </div>
-    <div class="flex gap-4 items-center justify-between flex-wrap">
-      <!-- TODO: show total used space -->
-      <p class="text-text/50">
-        {interceptedResponses.length} Response/s
+    <div>
+      <p class="mb-2 text-text/50">
+        {interceptedResponses.length} Response/s ({sizeToStr(totalResSize)})
       </p>
-      <div class="flex gap-1 items-center text-text/50">
+      <div class="flex gap-2 items-center justify-between text-text/50">
         <Checkbox id="select" class="mr-2"
           checked={selectedResponses.length > 0}
           disabled={interceptedResponses.length < 1}
           onCheckedChange={(checked) => handleSelectAll(checked)}>
-          {selectedResponses.length} selected
+          {selectedResponses.length} Selected ({sizeToStr(totalSelSize)})
         </Checkbox>
-        <Button variant="primary" disabled={selectedResponses.length < 1}
-          onclick={handleDownload}>
-          <Download class="size-4" />
-        </Button>
-        <Button variant="destructive" disabled={selectedResponses.length < 1}
-          onclick={handleDelete}>
-          <Trash2 class="size-4" />
-        </Button>
+        <div class="flex gap-1">
+          <Button variant="primary" disabled={selectedResponses.length < 1}
+            onclick={handleDownload}>
+            <Download class="size-4" />
+          </Button>
+          <Button variant="destructive" disabled={selectedResponses.length < 1}
+            onclick={handleDelete}>
+            <Trash2 class="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
-  </header>
-  <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 px-2">
+  </div>
+  <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 max-w-5xl mx-auto px-2">
     {#each interceptedResponses as intRes}
       <InterceptionCard interceptedResponse={intRes} selected={setSelRes.has(intRes.id)}
         onSelection={handleSelection} />

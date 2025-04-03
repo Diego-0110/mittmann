@@ -16,7 +16,20 @@
 html {
   @apply bg-surface;
 }
+
 body {
   @apply text-text;
   @apply text-base;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  html {
+    color-scheme: light;
+  }
 }

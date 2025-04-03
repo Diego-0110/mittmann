@@ -12,21 +12,18 @@ export function responseToDataURL (ir: InterceptedResponseEx) {
   return `data:${ir.contentType}${content}`
 }
 
-export function base64ToFile(str: string, mimeType: string) {
-  const content = atob(str)
-  const buffer = new ArrayBuffer(content.length)
-  const view = new Uint8Array(buffer)
-  for (let i = 0; i < content.length; i++) {
-    view[i] = content.charCodeAt(i)
+const KB = Math.pow(2, 10)
+const MB = Math.pow(2, 20)
+const GB = Math.pow(2, 30)
+export function sizeToStr (size: number) {
+  if (size > GB) {
+    return `${roundWithPrecision(size / GB, 2)} GB`
+  } else if (size > MB) {
+    return `${roundWithPrecision(size / MB, 2)} MB`
+  } else if (size > KB) {
+    return `${roundWithPrecision(size / KB, 2)} KB`
+  } else {
+    return `${size} B`
   }
-  return new Blob([buffer], { type: mimeType })
 }
 
-export function blobToDataUrl (blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result as string)
-    reader.onerror = () => reject()
-    reader.readAsDataURL(blob)
-  })
-}
