@@ -8,6 +8,7 @@
   import { getIDBDatabase } from "./services/db";
   import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
   import { SvelteSet } from "svelte/reactivity";
+  import { indexedDBState as indexedDB } from "$/states/indexedDB.svelte";
   import mime from "mime-types";
   import { responseToDataURL, sizeToStr } from "./utils/misc";
 
@@ -15,7 +16,6 @@
   let interceptOptions: InterceptOptions = $state({
     activated: false
   })
-  let indexedDb: IDBDatabase | null = $state(null)
   let contentTypeFilters: string[] = $state([])
   let selectedResponses: string[] = $state([])
   let setSelRes: SvelteSet<string> = $state(new SvelteSet())
@@ -58,8 +58,8 @@
 
       interceptedResponses = [...interceptedResponses, newInterceptedResponse]
       totalResSize += size
-      if (indexedDb) {
-        addIntRes(indexedDb, {
+      if (indexedDB.db) {
+        addIntRes(indexedDB.db, {
           ...newInterceptedResponse,
           content,
         })
@@ -72,8 +72,8 @@
     setSelRes.clear()
     totalResSize = 0
     totalSelSize = 0
-    if (indexedDb) {
-      await deleteAll(indexedDb)
+    if (indexedDB.db) {
+      await deleteAll(indexedDB.db)
     }
   }
   function handleSelection (selected: boolean, ir: InterceptedResponse) {
@@ -88,10 +88,10 @@
     }
   }
   async function handleDownload () {
-    if (indexedDb) {
+    if (indexedDB.db) {
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
-        const irEx = await getIntRes(indexedDb, irid)
+        const irEx = await getIntRes(indexedDB.db, irid)
         const hasExt = mime.extensions[irEx.contentType.split(';')[0]]?.some(
           (e) => irEx.name.endsWith(e))
         const defExt = mime.extension(irEx.contentType)
@@ -107,10 +107,10 @@
     }
   }
   async function handleDelete () {
-    if (indexedDb) {
+    if (indexedDB.db) {
       for (let i = 0; i < selectedResponses.length; i++) {
         const irid = selectedResponses[i]
-        await deleteIntRes(indexedDb, irid)
+        await deleteIntRes(indexedDB.db, irid)
       }
     }
     interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
@@ -132,7 +132,7 @@
   }
   $effect(() => {
     getIDBDatabase().then(async (db) => {
-      indexedDb = db
+      indexedDB.db = db
       const prevIntRes = await getIntResAll(db)
       interceptedResponses = [...prevIntRes, ...interceptedResponses]
       totalResSize += interceptedResponses.reduce((acc, curr) => acc + curr.size, 0)

@@ -27,3 +27,14 @@ export function sizeToStr (size: number) {
   }
 }
 
+export function isImageType (contentType: string) {
+  return contentType.includes('image')
+}
+export function isTextType (contentType: string) {
+  return contentType.includes('text') || contentType.includes('css') ||
+    contentType.includes('html') || contentType.includes('xml') ||
+    contentType.includes('javascript') || contentType.includes('json')
+}
+export function hasPreview (contentType: string) {
+  return isImageType(contentType) || isTextType(contentType)
+}
