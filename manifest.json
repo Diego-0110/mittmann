@@ -1,9 +1,15 @@
 {
   "name": "Mittmann",
-  "description": "Save and download requested data in a website.",
+  "description": "Save and download requested data from a website.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "64": "icons/icon64.png",
+    "128": "icons/icon128.png"
+  },
   "version": "0.1",
   "manifest_version": 3,
-  "devtools_page": "./dist/devtool/index.html",
+  "devtools_page": "dist/devtool/index.html",
   "permissions": [
     "downloads"
   ]

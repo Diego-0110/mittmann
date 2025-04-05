@@ -1,4 +1,4 @@
 chrome.devtools.panels.create("Mittmann",
   '',
-  './dist/index.html',
+  '/dist/index.html',
 )

@@ -1,143 +1,144 @@
 <script lang="ts">
-  import Button from "$/components/ui/Button.svelte";
-  import Combobox from "$/components/ui/Combobox.svelte";
-  import Checkbox from "$/components/ui/Checkbox.svelte";
-  import { CirclePlay, Download, StopCircle, Trash2 } from "@lucide/svelte";
-  import type { InterceptedResponse, InterceptOptions } from "$/types"
-  import InterceptionCard from "./components/InterceptionCard.svelte";
-  import { getIDBDatabase } from "./services/db";
-  import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
-  import { SvelteSet } from "svelte/reactivity";
-  import { indexedDBState as indexedDB } from "$/states/indexedDB.svelte";
-  import mime from "mime-types";
-  import { responseToDataURL, sizeToStr } from "./utils/misc";
+import Button from "$/components/ui/Button.svelte";
+import Combobox from "$/components/ui/Combobox.svelte";
+import Checkbox from "$/components/ui/Checkbox.svelte";
+import { CirclePlay, Download, StopCircle, Trash2 } from "@lucide/svelte";
+import type { InterceptedResponse, InterceptOptions } from "$/types"
+import InterceptionCard from "./components/InterceptionCard.svelte";
+import { getIDBDatabase } from "./services/db";
+import { addIntRes, getIntRes, deleteAll, deleteIntRes, getIntResAll } from "./services/interceptedResponse";
+import { SvelteSet } from "svelte/reactivity";
+import { indexedDBState as indexedDB } from "$/states/indexedDB.svelte";
+import mime from "mime-types";
+import { responseToDataURL, sizeToStr } from "./utils/misc";
 
-  let interceptedResponses: InterceptedResponse[] = $state([])
-  let interceptOptions: InterceptOptions = $state({
-    activated: false
-  })
-  let contentTypeFilters: string[] = $state([])
-  let selectedResponses: string[] = $state([])
-  let setSelRes: SvelteSet<string> = $state(new SvelteSet())
-  const CONTENT_TYPES = [...new Set(Object.values(mime.types).sort()).values()]
-  .map((c) => ({ value: c, label: c }))
-  let totalResSize = $state(0)
-  let totalSelSize = $state(0)
+let interceptedResponses: InterceptedResponse[] = $state([])
+let interceptOptions: InterceptOptions = $state({
+  activated: false
+})
+let contentTypeFilters: string[] = $state([])
+let selectedResponses: string[] = $state([])
+let setSelRes: SvelteSet<string> = $state(new SvelteSet())
+const CONTENT_TYPES = [...new Set(Object.values(mime.types).sort()).values()]
+.map((c) => ({ value: c, label: c }))
+let totalResSize = $state(0)
+let totalSelSize = $state(0)
 
-  chrome.devtools.network.onRequestFinished.addListener((inRequest) => {
-    if (!interceptOptions.activated) {
+chrome.devtools.network.onRequestFinished.addListener((inRequest) => {
+  if (!interceptOptions.activated) {
+    return
+  }
+  const devRequest = inRequest as chrome.devtools.network.Request & {
+    response: Response & { content: { mimeType: string, size: number },
+      headers: { name: string, value: string }[] }
+    request: Request
+  }
+  let contentType = devRequest.response.content.mimeType as string
+  const headerContentType = devRequest.response.headers.find((h) => h.name === 'content-type')
+  contentType = contentType !== 'x-unknown' || !headerContentType?.value ? contentType
+    : headerContentType?.value.split(';')[0]
+  if (contentTypeFilters.length > 0 && !contentTypeFilters.includes(contentType)) {
+    return
+  }
+  const name = new URL(devRequest.request.url).pathname.split('/').slice(-1)[0]
+  devRequest.getContent(async (content, defEncoding) => {
+    if (!content) {
       return
     }
-    const devRequest = inRequest as chrome.devtools.network.Request & {
-      response: Response & { content: { mimeType: string, size: number },
-        headers: { name: string, value: string }[] }
-      request: Request
+    const encoding = defEncoding || mime.charset(contentType) || undefined
+    const size = devRequest.response.content.size
+    const newInterceptedResponse: InterceptedResponse = {
+      id: self.crypto.randomUUID(),
+      contentType: encoding && encoding !== 'base64'?
+        `${contentType};charset=${encoding.toLowerCase()}`: contentType,
+      encoding,
+      name,
+      size
     }
-    let contentType = devRequest.response.content.mimeType as string
-    const headerContentType = devRequest.response.headers.find((h) => h.name === 'content-type')
-    contentType = contentType !== 'x-unknown' || !headerContentType?.value ? contentType
-      : headerContentType?.value.split(';')[0]
-    if (contentTypeFilters.length > 0 && !contentTypeFilters.includes(contentType)) {
-      return
-    }
-    const name = new URL(devRequest.request.url).pathname.split('/').slice(-1)[0]
-    devRequest.getContent(async (content, defEncoding) => {
-      if (!content) {
-        return
-      }
-      const encoding = defEncoding || mime.charset(contentType) || undefined
-      const size = devRequest.response.content.size
-      const newInterceptedResponse: InterceptedResponse = {
-        id: self.crypto.randomUUID(),
-        contentType: encoding && encoding !== 'base64'?
-          `${contentType};charset=${encoding.toLowerCase()}`: contentType,
-        encoding,
-        name,
-        size
-      }
 
-      interceptedResponses = [...interceptedResponses, newInterceptedResponse]
-      totalResSize += size
-      if (indexedDB.db) {
-        addIntRes(indexedDB.db, {
-          ...newInterceptedResponse,
-          content,
-        })
-      }
-    })
+    interceptedResponses = [...interceptedResponses, newInterceptedResponse]
+    totalResSize += size
+    if (indexedDB.db) {
+      addIntRes(indexedDB.db, {
+        ...newInterceptedResponse,
+        content,
+      })
+    }
   })
-  async function handleDeleteAll () {
-    interceptedResponses = []
+})
+async function handleDeleteAll () {
+  interceptedResponses = []
+  selectedResponses = []
+  setSelRes.clear()
+  totalResSize = 0
+  totalSelSize = 0
+  if (indexedDB.db) {
+    await deleteAll(indexedDB.db)
+  }
+}
+function handleSelection (selected: boolean, ir: InterceptedResponse) {
+  if (selected) {
+    selectedResponses = [...selectedResponses, ir.id]
+    setSelRes.add(ir.id)
+    totalSelSize += ir.size
+  } else {
+    selectedResponses = selectedResponses.filter((sid) => sid !== ir.id)
+    setSelRes.delete(ir.id)
+    totalSelSize -= ir.size
+  }
+}
+async function handleDownload () {
+  if (indexedDB.db) {
+    for (let i = 0; i < selectedResponses.length; i++) {
+      const irid = selectedResponses[i]
+      const irEx = await getIntRes(indexedDB.db, irid)
+      const hasExt = mime.extensions[irEx.contentType.split(';')[0]]?.some(
+        (e) => irEx.name.endsWith(e))
+      const defExt = mime.extension(irEx.contentType)
+      let filename = irEx.name || 'download' // default value
+      if (!hasExt && defExt) {
+        filename += `.${defExt}`
+      }
+      chrome.downloads.download({
+        url: responseToDataURL(irEx),
+        filename: filename?.replace(/[/\\?%*:|"<>]/g, '')
+      })
+    }
+  }
+}
+async function handleDelete () {
+  if (indexedDB.db) {
+    for (let i = 0; i < selectedResponses.length; i++) {
+      const irid = selectedResponses[i]
+      await deleteIntRes(indexedDB.db, irid)
+    }
+  }
+  interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
+  selectedResponses = []
+  setSelRes.clear()
+  totalResSize -= totalSelSize
+  totalSelSize = 0
+}
+function handleSelectAll (selected: boolean) {
+  if (selected) {
+    selectedResponses = [...interceptedResponses.map((r) => r.id)]
+    interceptedResponses.forEach((r) => setSelRes.add(r.id))
+    totalSelSize = totalResSize
+  } else {
     selectedResponses = []
     setSelRes.clear()
-    totalResSize = 0
-    totalSelSize = 0
-    if (indexedDB.db) {
-      await deleteAll(indexedDB.db)
-    }
-  }
-  function handleSelection (selected: boolean, ir: InterceptedResponse) {
-    if (selected) {
-      selectedResponses = [...selectedResponses, ir.id]
-      setSelRes.add(ir.id)
-      totalSelSize += ir.size
-    } else {
-      selectedResponses = selectedResponses.filter((sid) => sid !== ir.id)
-      setSelRes.delete(ir.id)
-      totalSelSize -= ir.size
-    }
-  }
-  async function handleDownload () {
-    if (indexedDB.db) {
-      for (let i = 0; i < selectedResponses.length; i++) {
-        const irid = selectedResponses[i]
-        const irEx = await getIntRes(indexedDB.db, irid)
-        const hasExt = mime.extensions[irEx.contentType.split(';')[0]]?.some(
-          (e) => irEx.name.endsWith(e))
-        const defExt = mime.extension(irEx.contentType)
-        let filename = irEx.name || 'download' // default value
-        if (!hasExt && defExt) {
-          filename += `.${defExt}`
-        }
-        chrome.downloads.download({
-          url: responseToDataURL(irEx),
-          filename: filename?.replace(/[/\\?%*:|"<>]/g, '')
-        })
-      }
-    }
-  }
-  async function handleDelete () {
-    if (indexedDB.db) {
-      for (let i = 0; i < selectedResponses.length; i++) {
-        const irid = selectedResponses[i]
-        await deleteIntRes(indexedDB.db, irid)
-      }
-    }
-    interceptedResponses = interceptedResponses.filter((ir) => !setSelRes.has(ir.id))
-    selectedResponses = []
-    setSelRes.clear()
-    totalResSize -= totalSelSize
     totalSelSize = 0
   }
-  function handleSelectAll (selected: boolean) {
-    if (selected) {
-      selectedResponses = [...interceptedResponses.map((r) => r.id)]
-      interceptedResponses.forEach((r) => setSelRes.add(r.id))
-      totalSelSize = totalResSize
-    } else {
-      selectedResponses = []
-      setSelRes.clear()
-      totalSelSize = 0
-    }
-  }
-  $effect(() => {
-    getIDBDatabase().then(async (db) => {
-      indexedDB.db = db
-      const prevIntRes = await getIntResAll(db)
-      interceptedResponses = [...prevIntRes, ...interceptedResponses]
-      totalResSize += interceptedResponses.reduce((acc, curr) => acc + curr.size, 0)
-    })
+}
+
+$effect(() => {
+  getIDBDatabase().then(async (db) => {
+    indexedDB.db = db
+    const prevIntRes = await getIntResAll(db)
+    interceptedResponses = [...prevIntRes, ...interceptedResponses]
+    totalResSize += interceptedResponses.reduce((acc, curr) => acc + curr.size, 0)
   })
+})
 </script>
 
 <main class="max-sm:text-sm pb-4">
