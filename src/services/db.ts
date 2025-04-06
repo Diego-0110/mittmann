@@ -1,7 +1,10 @@
+export const DATABASE_NAME = 'Mittmann'
+export const DATABASE_VERSION = 3
+export const OBJECT_STORE_NAME = 'capturedResponses'
 
 export function getIDBDatabase (): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const reqOpen = window.indexedDB.open('Mittmann', 3);
+    const reqOpen = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     reqOpen.onerror = (evt) => {
       const target = evt.target as any
       console.log(`Error while opening Mittmann\'s indexedDB: ${target.error?.message}`)
@@ -15,7 +18,7 @@ export function getIDBDatabase (): Promise<IDBDatabase> {
       const target = evt.target as any
       const db = target.result as IDBDatabase
 
-      db.createObjectStore('interceptedResponses', { keyPath: 'id' })
+      db.createObjectStore(OBJECT_STORE_NAME, { keyPath: 'id' })
     }
   })
 }

@@ -1,29 +1,31 @@
 <script lang="ts">
 import { indexedDBState as indexedDB } from "$/states/indexedDB.svelte"
-import type { InterceptedResponse } from "$/types";
-import { getIntRes } from "$/services/interceptedResponse"
+import type { CapturedResponse } from "$/types";
+import { getCapRes } from "$/services/capturedResponse"
 import { responseToDataURL, isImageType, hasPreview } from "$/utils/misc"
 
 interface Props {
-  interceptedResponse: InterceptedResponse
+  response: CapturedResponse
   show: boolean
   onClose: (evt: MouseEvent | KeyboardEvent) => void
 }
 let previewContent: null | string = $state(null)
 
-const { show, onClose, interceptedResponse: ir }: Props = $props()
+const { show, onClose, response }: Props = $props()
 
 $effect(() => {
   if (show && indexedDB.db) {
-    if (!hasPreview(ir.contentType)) {
+    // Show preview only when is a text or image type
+    if (!hasPreview(response.contentType)) {
       previewContent = 'No preview.'
       return
     }
-    getIntRes(indexedDB.db, ir.id).then((irEx) => {
-      if (isImageType(ir.contentType)) {
-        previewContent = responseToDataURL(irEx)
+    // Get from database the complete data of the response
+    getCapRes(indexedDB.db, response.id).then((responseEx) => {
+      if (isImageType(response.contentType)) {
+        previewContent = responseToDataURL(responseEx)
       } else {
-        previewContent = irEx.content
+        previewContent = responseEx.content
       }
     })
   }
@@ -35,9 +37,9 @@ $effect(() => {
   {#if previewContent}
     <div class="p-4 w-[min(100%,var(--container-2xl))] max-h-full overflow-auto bg-surface-container rounded-sm">
       <p class="mb-2 font-semibold text-center max-w-full whitespace-nowrap overflow-hidden text-ellipsis">
-        {ir.name}
+        {response.name}
       </p>
-      {#if isImageType(ir.contentType)}
+      {#if isImageType(response.contentType)}
         <div class="h-96">
           <img src={previewContent} alt="Preview" class="w-full h-full object-scale-down">
         </div>

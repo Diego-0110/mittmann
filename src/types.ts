@@ -1,5 +1,5 @@
 
-export interface InterceptedResponse {
+export interface CapturedResponse {
   id: string
   contentType: string
   encoding?: string
@@ -7,10 +7,11 @@ export interface InterceptedResponse {
   size: number
 }
 
-export interface InterceptedResponseEx  extends InterceptedResponse {
+export interface CapturedResponseEx  extends CapturedResponse {
   content: string
 }
 
-export interface InterceptOptions {
+export interface CaptureOptions {
   activated: boolean
+  mimeTypes: string[]
 }
