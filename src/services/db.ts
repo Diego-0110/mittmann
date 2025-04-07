@@ -2,6 +2,8 @@ export const DATABASE_NAME = 'Mittmann'
 export const DATABASE_VERSION = 3
 export const OBJECT_STORE_NAME = 'capturedResponses'
 
+// Wrappers of indexedDB's functions using promise
+
 export function getIDBDatabase (): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const reqOpen = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);

@@ -27,7 +27,7 @@ let { opts = $bindable(), class: className }: Props = $props()
     {#if opts.activated}
       <StopCircle class="size-4" />Stop
     {:else}
-      <CirclePlay class="size-4" />Intercept
+      <CirclePlay class="size-4" />Capture
     {/if}
   </Button>
   <Combobox items={CONTENT_TYPES} bind:value={opts.mimeTypes}

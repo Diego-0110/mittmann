@@ -8,7 +8,7 @@ export function cnx (...classes: ClassValue[]) {
 }
 
 const customTwMerge = extendTailwindMerge({ })
-// For general use
+// For general use: merge multiple tailwind classes
 export function cn (...classes: ClassValue[]) {
   return customTwMerge(clsx(...classes))
 }

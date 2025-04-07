@@ -7,7 +7,7 @@
     "64": "icons/icon64.png",
     "128": "icons/icon128.png"
   },
-  "version": "0.1",
+  "version": "1.0",
   "manifest_version": 3,
   "devtools_page": "dist/devtool/index.html",
   "permissions": [

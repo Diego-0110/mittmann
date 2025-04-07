@@ -26,17 +26,6 @@ let {
 }: Props = $props()
 
 
-async function handleDeleteAll () {
-  responses = []
-  selectedResponses = []
-  selResponsesSet.clear()
-  totalResSize = 0
-  totalSelSize = 0
-  if (indexedDB.db) {
-    await deleteAll(indexedDB.db)
-  }
-}
-
 async function handleDownload () {
   if (indexedDB.db) {
     // Get every selected response from database
@@ -78,6 +67,17 @@ async function handleDelete () {
   selResponsesSet.clear()
   totalResSize -= totalSelSize
   totalSelSize = 0
+}
+
+async function handleDeleteAll () {
+  responses = []
+  selectedResponses = []
+  selResponsesSet.clear()
+  totalResSize = 0
+  totalSelSize = 0
+  if (indexedDB.db) {
+    await deleteAll(indexedDB.db)
+  }
 }
 
 function handleSelectAll (selected: boolean) {
